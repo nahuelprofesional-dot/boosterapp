@@ -9,10 +9,12 @@ import { DEMO_USER, seed } from '@/lib/demo-data'
 import type { Conversation, ConversationStatus, Message } from '@/lib/types'
 
 const STATUS_ORDER: Record<ConversationStatus, number> = {
-  waiting: 0,
-  human_active: 1,
-  bot_active: 2,
-  resolved: 3,
+  offline_handoff: 0,
+  waiting: 1,
+  human_active: 2,
+  bot_active: 3,
+  resolved: 4,
+  archived: 5,
 }
 
 function formatRelative(iso: string) {

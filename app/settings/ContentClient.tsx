@@ -3,7 +3,14 @@
 import { useState } from 'react'
 import type { HotelConfig } from '@/lib/types'
 
-type Form = Omit<HotelConfig, 'hotel_id' | 'updated_at'>
+// The "Contenido del bot" tab only manages the operational fields. Appearance
+// fields (bot_name, bot_tone, theme, colors) are owned by AppearanceClient,
+// and the /api/hotel-config PUT route filters by an ALLOWED list — so omitting
+// them here is safe: they won't be overwritten when this form is saved.
+type Form = Omit<
+  HotelConfig,
+  'hotel_id' | 'updated_at' | 'bot_name' | 'bot_tone' | 'theme_name' | 'primary_color' | 'accent_color'
+>
 
 const EMPTY: Form = {
   checkin_time: '',

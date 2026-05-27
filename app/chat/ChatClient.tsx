@@ -453,11 +453,12 @@ export default function ChatClient({ currentUserId, displayName, hotelId, vapidP
   )
 }
 
-function urlBase64ToUint8Array(base64String: string): Uint8Array {
+function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
   const raw = atob(base64)
-  const out = new Uint8Array(raw.length)
-  for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i)
-  return out
+  const buf = new ArrayBuffer(raw.length)
+  const view = new Uint8Array(buf)
+  for (let i = 0; i < raw.length; i++) view[i] = raw.charCodeAt(i)
+  return buf
 }
