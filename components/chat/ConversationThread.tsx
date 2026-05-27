@@ -45,21 +45,36 @@ export default function ConversationThread({ conversation, messages, onTaken, on
         <TakeoverBanner conversationId={conversation.id} onTaken={onTaken} />
       )}
       {showActiveBar && (
-        <div className="bg-info text-info-fg px-4 py-2 flex items-center justify-between border-b border-border">
+        <div className="bg-info text-info-fg px-4 py-2 flex flex-wrap items-center justify-between gap-2 border-b border-border">
           <span className="text-sm font-medium">Recepción activa</span>
-          <button
-            onClick={async () => {
-              await fetch('/api/conversations/resolve', {
-                method: 'POST',
-                headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ conversationId: conversation.id }),
-              })
-              onResolved()
-            }}
-            className="text-xs underline hover:no-underline"
-          >
-            Marcar como resuelto
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={async () => {
+                await fetch('/api/conversations/return-to-bot', {
+                  method: 'POST',
+                  headers: { 'content-type': 'application/json' },
+                  body: JSON.stringify({ conversationId: conversation.id }),
+                })
+                // Realtime UPDATE flips the conversation row; the input disables itself.
+              }}
+              className="text-xs underline hover:no-underline"
+            >
+              Devolver al bot
+            </button>
+            <button
+              onClick={async () => {
+                await fetch('/api/conversations/resolve', {
+                  method: 'POST',
+                  headers: { 'content-type': 'application/json' },
+                  body: JSON.stringify({ conversationId: conversation.id }),
+                })
+                onResolved()
+              }}
+              className="text-xs underline hover:no-underline"
+            >
+              Marcar como resuelto
+            </button>
+          </div>
         </div>
       )}
       {conversation.status === 'resolved' && (
