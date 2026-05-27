@@ -1,11 +1,11 @@
-// Admin-only endpoint that scans recent conversations and uses Claude to
+// Admin-only endpoint that scans recent conversations and uses the model to
 // detect booking-intent guests who never finalised. Results are upserted
 // into the `leads` table (unique by conversation_id).
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { createAdminClient } from '@/lib/supabase-admin'
-import { callClaude, parseJsonBlock, MissingApiKeyError } from '@/lib/anthropic'
+import { callOpenAI, parseJsonBlock, MissingApiKeyError } from '@/lib/openai'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -51,17 +51,18 @@ async function analyzeConversation(messages: Array<{ sender_type: string; sender
     return `${who}: ${m.content}`
   }).join('\n')
 
-  const res = await callClaude({
+  const res = await callOpenAI({
     system: SYSTEM_PROMPT,
     messages: [{ role: 'user', content: transcript }],
     max_tokens: 400,
     temperature: 0,
+    jsonMode: true,
   })
 
   try {
     return parseJsonBlock<AnalysisResult>(res.text)
   } catch (err) {
-    console.error('Failed to parse Claude response:', res.text, err)
+    console.error('Failed to parse OpenAI response:', res.text, err)
     return null
   }
 }
@@ -162,7 +163,7 @@ export async function POST() {
   } catch (err) {
     if (err instanceof MissingApiKeyError) {
       return NextResponse.json({
-        error: 'Falta ANTHROPIC_API_KEY en el servidor. Añádela a .env.local y reinicia.',
+        error: 'Falta OPENAI_API_KEY en el servidor. Añádela a .env.local y reinicia.',
       }, { status: 503 })
     }
     console.error('analyze error', err)

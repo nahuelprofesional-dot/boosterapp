@@ -1,12 +1,12 @@
 // Admin-only endpoint that summarises the last 7 days of conversations for
 // the caller's hotel. We pre-compute deterministic metrics (bot %, busiest
-// hours, totals) so the numbers are exact, then ask Claude to add qualitative
-// analysis (FAQ themes, issues, recommendation) in Spanish.
+// hours, totals) so the numbers are exact, then ask the model to add
+// qualitative analysis (FAQ themes, issues, recommendation) in Spanish.
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { createAdminClient } from '@/lib/supabase-admin'
-import { callClaude, MissingApiKeyError } from '@/lib/anthropic'
+import { callOpenAI, MissingApiKeyError } from '@/lib/openai'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -124,7 +124,7 @@ export async function POST() {
   ].join('\n')
 
   try {
-    const res = await callClaude({
+    const res = await callOpenAI({
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: userPrompt }],
       max_tokens: 900,
@@ -134,7 +134,7 @@ export async function POST() {
   } catch (err) {
     if (err instanceof MissingApiKeyError) {
       return NextResponse.json({
-        error: 'Falta ANTHROPIC_API_KEY en el servidor. Añádela a .env.local y reinicia.',
+        error: 'Falta OPENAI_API_KEY en el servidor. Añádela a .env.local y reinicia.',
       }, { status: 503 })
     }
     console.error('weekly-summary error', err)
