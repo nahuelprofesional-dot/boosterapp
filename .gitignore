@@ -1,0 +1,17 @@
+node_modules
+.next
+out
+.env
+.env.local
+.env*.local
+.vercel
+.DS_Store
+*.log
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+
+# Editor / OS junk
+.idea/
+.vscode/
+Thumbs.db
