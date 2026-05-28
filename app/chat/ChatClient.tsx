@@ -47,11 +47,35 @@ export default function ChatClient({ currentUserId, displayName, hotelId, vapidP
   const [pushReady, setPushReady] = useState(false)
   const [notifPermission, setNotifPermission] = useState<NotificationPermission | 'unsupported' | null>(null)
   const [receptionistsOnline, setReceptionistsOnline] = useState<Array<{ userId: string; displayName: string }>>([])
+  const [realtimeAuthed, setRealtimeAuthed] = useState(false)
   const swRegRef = useRef<ServiceWorkerRegistration | null>(null)
 
   // Track latest selectedId in a ref for use inside realtime callbacks.
   const selectedIdRef = useRef<string | null>(null)
   useEffect(() => { selectedIdRef.current = selectedId }, [selectedId])
+
+  // ── Realtime auth ──────────────────────────────────────────────────────────
+  // createBrowserClient does NOT push the user's JWT onto the Realtime socket
+  // before our channels subscribe, so postgres_changes on RLS-protected tables
+  // are evaluated in anon context and every event is filtered out — the UI then
+  // only updates on a manual refresh (which re-runs the REST fetch). We set the
+  // token explicitly, gate the channels on it, and keep it fresh on refresh.
+  useEffect(() => {
+    let active = true
+    ;(async () => {
+      const { data } = await supabase.auth.getSession()
+      const token = data.session?.access_token
+      if (token) supabase.realtime.setAuth(token)
+      if (active) setRealtimeAuthed(true)
+    })()
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.access_token) supabase.realtime.setAuth(session.access_token)
+    })
+    return () => {
+      active = false
+      sub.subscription.unsubscribe()
+    }
+  }, [supabase])
 
   // ── Initial fetch ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -97,6 +121,7 @@ export default function ChatClient({ currentUserId, displayName, hotelId, vapidP
 
   // ── Realtime: conversations ────────────────────────────────────────────────
   useEffect(() => {
+    if (!realtimeAuthed) return
     const channel = supabase
       .channel(`conv-${hotelId}`)
       .on(
@@ -121,7 +146,7 @@ export default function ChatClient({ currentUserId, displayName, hotelId, vapidP
     return () => {
       void supabase.removeChannel(channel)
     }
-  }, [supabase, hotelId])
+  }, [supabase, hotelId, realtimeAuthed])
 
   // ── Heartbeat: mirror presence to a DB row so the webhook can see it ──────
   // Only receptionists count toward "someone is online" for the handoff
@@ -167,6 +192,7 @@ export default function ChatClient({ currentUserId, displayName, hotelId, vapidP
 
   // ── Realtime: messages (RLS scopes to this hotel) ──────────────────────────
   useEffect(() => {
+    if (!realtimeAuthed) return
     const channel = supabase
       .channel('msg-all')
       .on(
@@ -184,7 +210,7 @@ export default function ChatClient({ currentUserId, displayName, hotelId, vapidP
     return () => {
       void supabase.removeChannel(channel)
     }
-  }, [supabase])
+  }, [supabase, realtimeAuthed])
 
   // ── Fetch messages for selected conversation ───────────────────────────────
   useEffect(() => {
