@@ -80,6 +80,8 @@ export async function POST(req: NextRequest) {
 
   const admin = createAdminClient()
 
+  const HANDOFF_CONNECTING_MESSAGE =
+    'Un momento, te estoy conectando con nuestro equipo de recepción. Por favor, no cierres el chat 🙏'
   const OFFLINE_HANDOFF_MESSAGE =
     'En este momento no hay recepcionistas disponibles. Te responderemos en cuanto el equipo esté disponible. También puedes llamarnos al teléfono del hotel.'
   let autoMessage: string | undefined
@@ -155,6 +157,11 @@ export async function POST(req: NextRequest) {
 
   // Handle handoff. Only meaningful if we're still in bot land.
   if (triggerHandoff && conversationStatusBefore !== 'human_active') {
+    // Whatever the receptionist availability, the guest widget must see the
+    // bot's "connecting you" line as the response for this turn so the chat
+    // doesn't go silent. Receptionist-specific status changes happen below.
+    autoMessage = HANDOFF_CONNECTING_MESSAGE
+
     // Are any receptionists actually online right now? The /chat client pings
     // receptionist_heartbeats every 30 s; we consider a window of 60 s.
     const cutoff = new Date(Date.now() - 60_000).toISOString()
@@ -194,7 +201,6 @@ export async function POST(req: NextRequest) {
         sender_name: 'Bot',
         content: OFFLINE_HANDOFF_MESSAGE,
       })
-      autoMessage = OFFLINE_HANDOFF_MESSAGE
     }
   }
 
