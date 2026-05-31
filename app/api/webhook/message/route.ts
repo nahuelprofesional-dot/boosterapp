@@ -80,6 +80,10 @@ export async function POST(req: NextRequest) {
 
   const admin = createAdminClient()
 
+  const OFFLINE_HANDOFF_MESSAGE =
+    'En este momento no hay recepcionistas disponibles. Te responderemos en cuanto el equipo esté disponible. También puedes llamarnos al teléfono del hotel.'
+  let autoMessage: string | undefined
+
   // Find or create the conversation by (hotel_id, session_id).
   const { data: existing } = await admin
     .from('conversations')
@@ -188,9 +192,9 @@ export async function POST(req: NextRequest) {
         conversation_id: conversationId,
         sender_type: 'bot',
         sender_name: 'Bot',
-        content:
-          'En este momento no hay recepcionistas disponibles. Te responderemos en cuanto el equipo esté disponible. También puedes llamarnos al teléfono del hotel.',
+        content: OFFLINE_HANDOFF_MESSAGE,
       })
+      autoMessage = OFFLINE_HANDOFF_MESSAGE
     }
   }
 
@@ -211,5 +215,6 @@ export async function POST(req: NextRequest) {
     ok: true,
     conversationId,
     botShouldReply,
+    ...(autoMessage ? { autoMessage } : {}),
   })
 }
