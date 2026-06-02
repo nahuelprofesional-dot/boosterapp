@@ -157,11 +157,6 @@ export async function POST(req: NextRequest) {
 
   // Handle handoff. Only meaningful if we're still in bot land.
   if (triggerHandoff && conversationStatusBefore !== 'human_active') {
-    // Whatever the receptionist availability, the guest widget must see the
-    // bot's "connecting you" line as the response for this turn so the chat
-    // doesn't go silent. Receptionist-specific status changes happen below.
-    autoMessage = HANDOFF_CONNECTING_MESSAGE
-
     // Are any receptionists actually online right now? The /chat client pings
     // receptionist_heartbeats every 30 s; we consider a window of 60 s.
     const cutoff = new Date(Date.now() - 60_000).toISOString()
@@ -174,6 +169,7 @@ export async function POST(req: NextRequest) {
     const someoneOnline = (liveCount ?? 0) > 0
 
     if (someoneOnline) {
+      autoMessage = HANDOFF_CONNECTING_MESSAGE
       await admin
         .from('conversations')
         .update({ status: 'waiting' })
@@ -190,6 +186,7 @@ export async function POST(req: NextRequest) {
         },
       })
     } else {
+      autoMessage = OFFLINE_HANDOFF_MESSAGE
       await admin
         .from('conversations')
         .update({ status: 'offline_handoff' })
@@ -204,11 +201,12 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Tell n8n whether it should run the AI Agent for this turn. The workflow
-  // has an IF node right after this call that gates the agent on this flag.
-  // The bot should only reply when (a) this is a guest message and (b) the
-  // conversation is in a bot-driven state. If the handoff just fired above,
-  // we're now in 'waiting' or 'offline_handoff' and the bot must stay quiet.
+  // The n8n workflow runs the AI Agent unconditionally and posts the result
+  // back to this endpoint; the server decides whether the widget should show
+  // it. `botShouldReply` is informational. When it's false we MUST return an
+  // `autoMessage` (possibly "") so the n8n Pass Through node has a definitive
+  // string to surface — its `??` chain stops at "" and won't fall through to
+  // the AI Agent output.
   const handoffJustFired = !!triggerHandoff && conversationStatusBefore !== 'human_active'
   const botShouldReply =
     senderType === 'guest' &&
@@ -217,10 +215,22 @@ export async function POST(req: NextRequest) {
     conversationStatusBefore !== 'resolved' &&
     conversationStatusBefore !== 'archived'
 
+  if (!botShouldReply && autoMessage === undefined) {
+    if (conversationStatusBefore === 'human_active') {
+      autoMessage = ''
+    } else if (conversationStatusBefore === 'offline_handoff') {
+      autoMessage = OFFLINE_HANDOFF_MESSAGE
+    } else if (conversationStatusBefore === 'waiting') {
+      autoMessage = HANDOFF_CONNECTING_MESSAGE
+    } else {
+      autoMessage = ''
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     conversationId,
     botShouldReply,
-    ...(autoMessage ? { autoMessage } : {}),
+    ...(autoMessage !== undefined ? { autoMessage } : {}),
   })
 }
