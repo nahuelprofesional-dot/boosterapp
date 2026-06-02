@@ -124,15 +124,21 @@ export async function POST(req: NextRequest) {
     assignedTo = (created.assigned_to as string | null) ?? null
   }
 
-  // Insert the message.
-  const { error: msgErr } = await admin.from('messages').insert({
-    conversation_id: conversationId,
-    sender_type: senderType,
-    sender_name: senderType === 'bot' ? 'Bot' : null,
-    content: message,
-  })
-  if (msgErr) {
-    return NextResponse.json({ error: 'could not insert message' }, { status: 500 })
+  // n8n now runs the AI Agent on every turn and posts its reply back, so a bot
+  // message can arrive after a receptionist took over. The widget hides it
+  // (autoMessage === ""), and the DB shouldn't carry the silent reply either.
+  const skipBotInsert =
+    senderType === 'bot' && conversationStatusBefore === 'human_active'
+  if (!skipBotInsert) {
+    const { error: msgErr } = await admin.from('messages').insert({
+      conversation_id: conversationId,
+      sender_type: senderType,
+      sender_name: senderType === 'bot' ? 'Bot' : null,
+      content: message,
+    })
+    if (msgErr) {
+      return NextResponse.json({ error: 'could not insert message' }, { status: 500 })
+    }
   }
 
   // Guest messages while a human is in control: don't run the bot, but ping
